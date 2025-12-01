@@ -14,16 +14,296 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      accounting_entries: {
+        Row: {
+          business_id: string
+          created_at: string | null
+          date: string
+          description: string
+          id: string
+          transaction_id: string | null
+        }
+        Insert: {
+          business_id: string
+          created_at?: string | null
+          date: string
+          description: string
+          id?: string
+          transaction_id?: string | null
+        }
+        Update: {
+          business_id?: string
+          created_at?: string | null
+          date?: string
+          description?: string
+          id?: string
+          transaction_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accounting_entries_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      accounting_entry_lines: {
+        Row: {
+          account_code: string
+          account_name: string
+          created_at: string | null
+          credit: number | null
+          debit: number | null
+          entry_id: string
+          id: number
+        }
+        Insert: {
+          account_code: string
+          account_name: string
+          created_at?: string | null
+          credit?: number | null
+          debit?: number | null
+          entry_id: string
+          id?: number
+        }
+        Update: {
+          account_code?: string
+          account_name?: string
+          created_at?: string | null
+          credit?: number | null
+          debit?: number | null
+          entry_id?: string
+          id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accounting_entry_lines_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "accounting_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      businesses: {
+        Row: {
+          color: string
+          created_at: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          color: string
+          created_at?: string | null
+          id: string
+          name: string
+        }
+        Update: {
+          color?: string
+          created_at?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      invoice_items: {
+        Row: {
+          created_at: string | null
+          description: string
+          id: number
+          invoice_id: string
+          quantity: number
+          total: number
+          unit_price: number
+        }
+        Insert: {
+          created_at?: string | null
+          description: string
+          id?: number
+          invoice_id: string
+          quantity: number
+          total: number
+          unit_price: number
+        }
+        Update: {
+          created_at?: string | null
+          description?: string
+          id?: number
+          invoice_id?: string
+          quantity?: number
+          total?: number
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_items_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoices: {
+        Row: {
+          business_id: string
+          client_supplier: string
+          created_at: string | null
+          date: string
+          id: string
+          igv: number
+          invoice_number: string
+          ruc: string | null
+          subtotal: number
+          total: number
+          type: string
+        }
+        Insert: {
+          business_id: string
+          client_supplier: string
+          created_at?: string | null
+          date: string
+          id?: string
+          igv: number
+          invoice_number: string
+          ruc?: string | null
+          subtotal: number
+          total: number
+          type: string
+        }
+        Update: {
+          business_id?: string
+          client_supplier?: string
+          created_at?: string | null
+          date?: string
+          id?: string
+          igv?: number
+          invoice_number?: string
+          ruc?: string | null
+          subtotal?: number
+          total?: number
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transaction_categories: {
+        Row: {
+          created_at: string | null
+          id: number
+          name: string
+          type: Database["public"]["Enums"]["transaction_type"]
+        }
+        Insert: {
+          created_at?: string | null
+          id?: number
+          name: string
+          type: Database["public"]["Enums"]["transaction_type"]
+        }
+        Update: {
+          created_at?: string | null
+          id?: number
+          name?: string
+          type?: Database["public"]["Enums"]["transaction_type"]
+        }
+        Relationships: []
+      }
+      transactions: {
+        Row: {
+          amount: number
+          business_id: string
+          category_id: number | null
+          created_at: string | null
+          date: string
+          description: string | null
+          from_account: string | null
+          id: string
+          reference: string | null
+          to_account: string | null
+          type: Database["public"]["Enums"]["transaction_type"]
+        }
+        Insert: {
+          amount: number
+          business_id: string
+          category_id?: number | null
+          created_at?: string | null
+          date: string
+          description?: string | null
+          from_account?: string | null
+          id?: string
+          reference?: string | null
+          to_account?: string | null
+          type: Database["public"]["Enums"]["transaction_type"]
+        }
+        Update: {
+          amount?: number
+          business_id?: string
+          category_id?: number | null
+          created_at?: string | null
+          date?: string
+          description?: string | null
+          from_account?: string | null
+          id?: string
+          reference?: string | null
+          to_account?: string | null
+          type?: Database["public"]["Enums"]["transaction_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "transaction_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      calculate_igv_totals: {
+        Args: {
+          business_filter?: string
+          end_date?: string
+          start_date?: string
+        }
+        Returns: {
+          credito_fiscal: number
+          igv_compras: number
+          igv_ventas: number
+        }[]
+      }
+      get_account_balance: {
+        Args: {
+          account_filter: string
+          business_filter?: string
+          end_date?: string
+          start_date?: string
+        }
+        Returns: number
+      }
     }
     Enums: {
-      [_ in never]: never
+      account_type: "asset" | "liability" | "equity" | "income" | "expense"
+      transaction_type: "income" | "expense" | "transfer"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +430,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      account_type: ["asset", "liability", "equity", "income", "expense"],
+      transaction_type: ["income", "expense", "transfer"],
+    },
   },
 } as const
