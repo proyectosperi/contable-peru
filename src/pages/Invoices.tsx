@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { BusinessFilter } from '@/components/BusinessFilter';
 import { PeriodFilter } from '@/components/PeriodFilter';
 import { InvoiceForm } from '@/components/InvoiceForm';
@@ -40,11 +40,16 @@ export default function Invoices() {
         <BusinessFilter value={selectedBusiness} onChange={setSelectedBusiness} />
       </div>
 
-      {showForm && (
-        <Card className="p-6">
+      <Dialog open={showForm} onOpenChange={setShowForm}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Nueva Factura de {invoiceType === 'sale' ? 'Venta' : 'Compra'}
+            </DialogTitle>
+          </DialogHeader>
           <InvoiceForm type={invoiceType} onClose={() => setShowForm(false)} />
-        </Card>
-      )}
+        </DialogContent>
+      </Dialog>
 
       <Tabs defaultValue="sales" className="space-y-6">
         <div className="flex items-center justify-between">
