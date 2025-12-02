@@ -79,6 +79,14 @@ export function TransactionList({ transactions }: TransactionListProps) {
                     <Badge variant="outline">
                       {transaction.fromAccount} → {transaction.toAccount}
                     </Badge>
+                  ) : transaction.type === 'expense' && transaction.fromAccount ? (
+                    <Badge variant="outline">
+                      {transaction.fromAccount}
+                    </Badge>
+                  ) : transaction.type === 'income' && transaction.toAccount ? (
+                    <Badge variant="outline">
+                      {transaction.toAccount}
+                    </Badge>
                   ) : (
                     '-'
                   )}
