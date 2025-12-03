@@ -6,9 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { BUSINESSES } from '@/lib/mockData';
+import { useBusinesses } from '@/hooks/useBusinesses';
+import { createInvoice } from '@/lib/accountingService';
 import { calculateIGV, formatCurrency } from '@/lib/calculations';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const invoiceItemSchema = z.object({
@@ -34,6 +35,9 @@ interface InvoiceFormProps {
 }
 
 export function InvoiceForm({ type, onClose }: InvoiceFormProps) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { data: businesses, isLoading: businessesLoading } = useBusinesses();
+  
   const { register, handleSubmit, control, setValue, watch, formState: { errors } } = useForm<InvoiceFormData>({
     resolver: zodResolver(invoiceSchema),
     defaultValues: {
@@ -56,10 +60,33 @@ export function InvoiceForm({ type, onClose }: InvoiceFormProps) {
   const igv = calculateIGV(subtotal);
   const total = subtotal + igv;
 
-  const onSubmit = (data: InvoiceFormData) => {
-    console.log('Invoice data:', { ...data, type, subtotal, igv, total });
-    toast.success('Factura registrada exitosamente');
-    onClose();
+  const onSubmit = async (data: InvoiceFormData) => {
+    setIsSubmitting(true);
+    try {
+      await createInvoice({
+        type,
+        date: data.date!,
+        businessId: data.businessId!,
+        clientSupplier: data.clientSupplier!,
+        ruc: data.ruc,
+        invoiceNumber: data.invoiceNumber!,
+        items: data.items!.map(item => ({
+          description: item.description!,
+          quantity: item.quantity!,
+          unitPrice: item.unitPrice!,
+        })),
+        subtotal,
+        igv,
+        total,
+      });
+      toast.success('Factura registrada con asiento contable');
+      onClose();
+    } catch (error) {
+      console.error('Error creating invoice:', error);
+      toast.error('Error al registrar la factura');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -73,12 +100,12 @@ export function InvoiceForm({ type, onClose }: InvoiceFormProps) {
 
         <div>
           <Label>Negocio</Label>
-          <Select onValueChange={(value) => setValue('businessId', value)}>
+          <Select onValueChange={(value) => setValue('businessId', value)} disabled={businessesLoading}>
             <SelectTrigger>
-              <SelectValue placeholder="Seleccionar" />
+              <SelectValue placeholder={businessesLoading ? 'Cargando...' : 'Seleccionar'} />
             </SelectTrigger>
             <SelectContent>
-              {BUSINESSES.filter(b => b.id !== 'all').map((business) => (
+              {businesses?.map((business) => (
                 <SelectItem key={business.id} value={business.id}>
                   {business.name}
                 </SelectItem>
@@ -170,10 +197,11 @@ export function InvoiceForm({ type, onClose }: InvoiceFormProps) {
       </div>
 
       <div className="flex gap-4">
-        <Button type="submit" className="flex-1">
+        <Button type="submit" className="flex-1" disabled={isSubmitting}>
+          {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           Guardar Factura
         </Button>
-        <Button type="button" variant="outline" onClick={onClose}>
+        <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
           Cancelar
         </Button>
       </div>

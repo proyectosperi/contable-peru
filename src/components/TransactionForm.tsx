@@ -7,9 +7,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { BUSINESSES, MOCK_TRANSACTIONS } from '@/lib/mockData';
-import { TRANSACTION_CATEGORIES, ACCOUNT_TYPES, TransactionType, AccountType } from '@/types/accounting';
+import { useBusinesses } from '@/hooks/useBusinesses';
+import { useTransactionCategories } from '@/hooks/useTransactionCategories';
+import { createTransaction } from '@/lib/accountingService';
+import { ACCOUNT_TYPES, TransactionType, AccountType } from '@/types/accounting';
 import { toast } from 'sonner';
+import { Loader2 } from 'lucide-react';
 
 const transactionSchema = z.object({
   date: z.string().min(1, 'Fecha requerida'),
@@ -31,8 +34,12 @@ interface TransactionFormProps {
 
 export function TransactionForm({ onClose }: TransactionFormProps) {
   const [transactionType, setTransactionType] = useState<TransactionType>('income');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
-  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<TransactionFormData>({
+  const { data: businesses, isLoading: businessesLoading } = useBusinesses();
+  const { data: categories, isLoading: categoriesLoading } = useTransactionCategories();
+  
+  const { register, handleSubmit, setValue, formState: { errors } } = useForm<TransactionFormData>({
     resolver: zodResolver(transactionSchema),
     defaultValues: {
       type: 'income',
@@ -40,15 +47,35 @@ export function TransactionForm({ onClose }: TransactionFormProps) {
     },
   });
 
-  const onSubmit = (data: TransactionFormData) => {
-    console.log('Transaction data:', data);
-    toast.success('Transacción registrada exitosamente');
-    onClose();
+  const onSubmit = async (data: TransactionFormData) => {
+    setIsSubmitting(true);
+    try {
+      await createTransaction({
+        date: data.date!,
+        type: data.type!,
+        businessId: data.businessId!,
+        categoryId: data.categoryId,
+        amount: data.amount!,
+        fromAccount: data.fromAccount,
+        toAccount: data.toAccount,
+        description: data.description!,
+        reference: data.reference,
+      });
+      toast.success('Transacción registrada con asiento contable');
+      onClose();
+    } catch (error) {
+      console.error('Error creating transaction:', error);
+      toast.error('Error al registrar la transacción');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const filteredCategories = TRANSACTION_CATEGORIES.filter(
+  const filteredCategories = categories?.filter(
     cat => cat.type === transactionType
-  );
+  ) || [];
+
+  const isLoading = businessesLoading || categoriesLoading;
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -81,12 +108,12 @@ export function TransactionForm({ onClose }: TransactionFormProps) {
 
         <div>
           <Label>Negocio</Label>
-          <Select onValueChange={(value) => setValue('businessId', value)}>
+          <Select onValueChange={(value) => setValue('businessId', value)} disabled={isLoading}>
             <SelectTrigger>
-              <SelectValue placeholder="Seleccionar" />
+              <SelectValue placeholder={isLoading ? 'Cargando...' : 'Seleccionar'} />
             </SelectTrigger>
             <SelectContent>
-              {BUSINESSES.filter(b => b.id !== 'all').map((business) => (
+              {businesses?.map((business) => (
                 <SelectItem key={business.id} value={business.id}>
                   {business.name}
                 </SelectItem>
@@ -101,9 +128,9 @@ export function TransactionForm({ onClose }: TransactionFormProps) {
         {transactionType !== 'transfer' && (
           <div>
             <Label>Categoría</Label>
-            <Select onValueChange={(value) => setValue('categoryId', parseInt(value))}>
+            <Select onValueChange={(value) => setValue('categoryId', parseInt(value))} disabled={isLoading}>
               <SelectTrigger>
-                <SelectValue placeholder="Seleccionar categoría" />
+                <SelectValue placeholder={isLoading ? 'Cargando...' : 'Seleccionar categoría'} />
               </SelectTrigger>
               <SelectContent>
                 {filteredCategories.map((category) => (
@@ -211,10 +238,11 @@ export function TransactionForm({ onClose }: TransactionFormProps) {
       </div>
 
       <div className="flex gap-4">
-        <Button type="submit" className="flex-1">
+        <Button type="submit" className="flex-1" disabled={isSubmitting}>
+          {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           Guardar Transacción
         </Button>
-        <Button type="button" variant="outline" onClick={onClose}>
+        <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
           Cancelar
         </Button>
       </div>
