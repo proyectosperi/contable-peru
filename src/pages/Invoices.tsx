@@ -7,7 +7,9 @@ import { BusinessFilter } from '@/components/BusinessFilter';
 import { PeriodFilter } from '@/components/PeriodFilter';
 import { InvoiceForm } from '@/components/InvoiceForm';
 import { InvoiceList } from '@/components/InvoiceList';
-import { useInvoices } from '@/hooks/useInvoices';
+import { useInvoices, useDeleteInvoice } from '@/hooks/useInvoices';
+import { Invoice } from '@/types/accounting';
+import { toast } from 'sonner';
 
 export default function Invoices() {
   const [selectedBusiness, setSelectedBusiness] = useState('all');
@@ -15,6 +17,7 @@ export default function Invoices() {
   const [showForm, setShowForm] = useState(false);
   const [invoiceType, setInvoiceType] = useState<'sale' | 'purchase'>('sale');
   const [activeTab, setActiveTab] = useState('sales');
+  const [editInvoice, setEditInvoice] = useState<Invoice | null>(null);
 
   const { data: salesInvoices, isLoading: loadingSales, refetch: refetchSales } = useInvoices({
     businessId: selectedBusiness,
@@ -28,18 +31,38 @@ export default function Invoices() {
     type: 'purchase',
   });
 
+  const deleteInvoice = useDeleteInvoice();
+
   const handleNewInvoice = (type: 'sale' | 'purchase') => {
     setInvoiceType(type);
+    setEditInvoice(null);
     setShowForm(true);
+  };
+
+  const handleEditInvoice = (invoice: Invoice) => {
+    setInvoiceType(invoice.type);
+    setEditInvoice(invoice);
+    setShowForm(true);
+  };
+
+  const handleDeleteInvoice = async (invoiceId: string) => {
+    try {
+      await deleteInvoice.mutateAsync(invoiceId);
+      toast.success('Factura eliminada correctamente');
+    } catch (error) {
+      console.error('Error deleting invoice:', error);
+      toast.error('Error al eliminar la factura');
+    }
   };
 
   const handleFormClose = () => {
     setShowForm(false);
+    setEditInvoice(null);
     refetchSales();
     refetchPurchases();
   };
 
-  const formatInvoices = (invoices: any[]) => invoices.map(inv => ({
+  const formatInvoices = (invoices: any[]): Invoice[] => invoices.map(inv => ({
     id: inv.id,
     date: inv.date,
     invoiceNumber: inv.invoice_number,
@@ -58,8 +81,8 @@ export default function Invoices() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Facturación</h1>
-          <p className="mt-1 text-muted-foreground">Gestión de facturas de compras y ventas</p>
+          <h1 className="text-3xl font-bold text-foreground">Facturacion</h1>
+          <p className="mt-1 text-muted-foreground">Gestion de facturas de compras y ventas</p>
         </div>
       </div>
 
@@ -72,10 +95,10 @@ export default function Invoices() {
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              Nueva Factura de {invoiceType === 'sale' ? 'Venta' : 'Compra'}
+              {editInvoice ? 'Editar' : 'Nueva'} Factura de {invoiceType === 'sale' ? 'Venta' : 'Compra'}
             </DialogTitle>
           </DialogHeader>
-          <InvoiceForm type={invoiceType} onClose={handleFormClose} />
+          <InvoiceForm type={invoiceType} onClose={handleFormClose} editInvoice={editInvoice} />
         </DialogContent>
       </Dialog>
 
@@ -102,11 +125,19 @@ export default function Invoices() {
         ) : (
           <>
             <TabsContent value="sales">
-              <InvoiceList invoices={formatInvoices(salesInvoices || [])} />
+              <InvoiceList 
+                invoices={formatInvoices(salesInvoices || [])} 
+                onEdit={handleEditInvoice}
+                onDelete={handleDeleteInvoice}
+              />
             </TabsContent>
 
             <TabsContent value="purchases">
-              <InvoiceList invoices={formatInvoices(purchaseInvoices || [])} />
+              <InvoiceList 
+                invoices={formatInvoices(purchaseInvoices || [])} 
+                onEdit={handleEditInvoice}
+                onDelete={handleDeleteInvoice}
+              />
             </TabsContent>
           </>
         )}

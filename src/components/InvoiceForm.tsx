@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -7,13 +7,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useBusinesses } from '@/hooks/useBusinesses';
+import { useUpdateInvoice } from '@/hooks/useInvoices';
 import { createInvoice } from '@/lib/accountingService';
 import { calculateIGV, formatCurrency } from '@/lib/calculations';
 import { Plus, Trash2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { Invoice } from '@/types/accounting';
 
 const invoiceItemSchema = z.object({
-  description: z.string().min(1, 'Descripción requerida'),
+  description: z.string().min(1, 'Descripcion requerida'),
   quantity: z.number().min(1, 'Cantidad debe ser mayor a 0'),
   unitPrice: z.number().min(0.01, 'Precio debe ser mayor a 0'),
 });
@@ -23,7 +25,7 @@ const invoiceSchema = z.object({
   businessId: z.string().min(1, 'Negocio requerido'),
   clientSupplier: z.string().min(1, 'Cliente/Proveedor requerido'),
   ruc: z.string().optional(),
-  invoiceNumber: z.string().min(1, 'Número de factura requerido'),
+  invoiceNumber: z.string().min(1, 'Numero de factura requerido'),
   items: z.array(invoiceItemSchema).min(1, 'Debe agregar al menos un item'),
 });
 
@@ -32,13 +34,17 @@ type InvoiceFormData = z.infer<typeof invoiceSchema>;
 interface InvoiceFormProps {
   type: 'sale' | 'purchase';
   onClose: () => void;
+  editInvoice?: Invoice | null;
 }
 
-export function InvoiceForm({ type, onClose }: InvoiceFormProps) {
+export function InvoiceForm({ type, onClose, editInvoice }: InvoiceFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { data: businesses, isLoading: businessesLoading } = useBusinesses();
+  const updateInvoice = useUpdateInvoice();
   
-  const { register, handleSubmit, control, setValue, watch, formState: { errors } } = useForm<InvoiceFormData>({
+  const isEditing = !!editInvoice;
+
+  const { register, handleSubmit, control, setValue, watch, reset, formState: { errors } } = useForm<InvoiceFormData>({
     resolver: zodResolver(invoiceSchema),
     defaultValues: {
       date: new Date().toISOString().split('T')[0],
@@ -46,12 +52,30 @@ export function InvoiceForm({ type, onClose }: InvoiceFormProps) {
     },
   });
 
+  useEffect(() => {
+    if (editInvoice) {
+      reset({
+        date: editInvoice.date,
+        businessId: editInvoice.businessId,
+        clientSupplier: editInvoice.clientSupplier,
+        ruc: editInvoice.ruc || '',
+        invoiceNumber: editInvoice.invoiceNumber,
+        items: [{ 
+          description: 'Items de factura', 
+          quantity: 1, 
+          unitPrice: editInvoice.subtotal 
+        }],
+      });
+    }
+  }, [editInvoice, reset]);
+
   const { fields, append, remove } = useFieldArray({
     control,
     name: 'items',
   });
 
   const items = watch('items');
+  const selectedBusinessId = watch('businessId');
   
   const subtotal = items.reduce((sum, item) => {
     return sum + (item.quantity || 0) * (item.unitPrice || 0);
@@ -63,27 +87,41 @@ export function InvoiceForm({ type, onClose }: InvoiceFormProps) {
   const onSubmit = async (data: InvoiceFormData) => {
     setIsSubmitting(true);
     try {
-      await createInvoice({
-        type,
-        date: data.date!,
-        businessId: data.businessId!,
-        clientSupplier: data.clientSupplier!,
-        ruc: data.ruc,
-        invoiceNumber: data.invoiceNumber!,
-        items: data.items!.map(item => ({
-          description: item.description!,
-          quantity: item.quantity!,
-          unitPrice: item.unitPrice!,
-        })),
-        subtotal,
-        igv,
-        total,
-      });
-      toast.success('Factura registrada con asiento contable');
+      if (isEditing && editInvoice) {
+        await updateInvoice.mutateAsync({
+          id: editInvoice.id,
+          date: data.date,
+          invoice_number: data.invoiceNumber,
+          client_supplier: data.clientSupplier,
+          ruc: data.ruc,
+          subtotal,
+          igv,
+          total,
+        });
+        toast.success('Factura actualizada correctamente');
+      } else {
+        await createInvoice({
+          type,
+          date: data.date,
+          businessId: data.businessId,
+          clientSupplier: data.clientSupplier,
+          ruc: data.ruc,
+          invoiceNumber: data.invoiceNumber,
+          items: data.items.map(item => ({
+            description: item.description,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+          })),
+          subtotal,
+          igv,
+          total,
+        });
+        toast.success('Factura registrada con asiento contable');
+      }
       onClose();
     } catch (error) {
-      console.error('Error creating invoice:', error);
-      toast.error('Error al registrar la factura');
+      console.error('Error saving invoice:', error);
+      toast.error(isEditing ? 'Error al actualizar la factura' : 'Error al registrar la factura');
     } finally {
       setIsSubmitting(false);
     }
@@ -100,7 +138,11 @@ export function InvoiceForm({ type, onClose }: InvoiceFormProps) {
 
         <div>
           <Label>Negocio</Label>
-          <Select onValueChange={(value) => setValue('businessId', value)} disabled={businessesLoading}>
+          <Select 
+            value={selectedBusinessId} 
+            onValueChange={(value) => setValue('businessId', value)} 
+            disabled={businessesLoading || isEditing}
+          >
             <SelectTrigger>
               <SelectValue placeholder={businessesLoading ? 'Cargando...' : 'Seleccionar'} />
             </SelectTrigger>
@@ -151,7 +193,7 @@ export function InvoiceForm({ type, onClose }: InvoiceFormProps) {
         {fields.map((field, index) => (
           <div key={field.id} className="grid gap-4 rounded-lg border border-border p-4 md:grid-cols-4">
             <div className="md:col-span-2">
-              <Label>Descripción</Label>
+              <Label>Descripcion</Label>
               <Input {...register(`items.${index}.description`)} />
             </div>
             <div>
@@ -199,7 +241,7 @@ export function InvoiceForm({ type, onClose }: InvoiceFormProps) {
       <div className="flex gap-4">
         <Button type="submit" className="flex-1" disabled={isSubmitting}>
           {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Guardar Factura
+          {isEditing ? 'Actualizar Factura' : 'Guardar Factura'}
         </Button>
         <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
           Cancelar
