@@ -15,39 +15,47 @@ export function useDashboardMetrics(options: UseDashboardMetricsOptions = {}) {
   return useQuery({
     queryKey: ['dashboard_metrics', businessId, period],
     queryFn: async (): Promise<DashboardMetricsResponse> => {
-      // Fetch all transactions for the period
-      let transactionsQuery = supabase
-        .from('transactions')
-        .select('*');
+      try {
+        // Fetch all transactions for the period
+        let transactionsQuery = supabase
+          .from('transactions')
+          .select('*');
 
-      // Only add date filters if they're not empty
-      if (startDate) {
-        transactionsQuery = transactionsQuery.gte('date', startDate);
-      }
-      if (endDate) {
-        transactionsQuery = transactionsQuery.lte('date', endDate);
-      }
-
-      if (businessId !== 'all') {
-        transactionsQuery = transactionsQuery.eq('business_id', businessId);
-      }
-
-      const { data: transactions, error: transactionsError } = await transactionsQuery;
-      if (transactionsError) throw transactionsError;
-
-      // Group transactions by currency
-      const groupedByCurrency = new Map<string, typeof transactions>();
-      (transactions || []).forEach(transaction => {
-        const currency = transaction.currency || 'PEN'; // Default to PEN if not specified
-        if (!groupedByCurrency.has(currency)) {
-          groupedByCurrency.set(currency, []);
+        // Only add date filters if they're not empty
+        if (startDate) {
+          transactionsQuery = transactionsQuery.gte('date', startDate);
         }
-        groupedByCurrency.get(currency)!.push(transaction);
-      });
+        if (endDate) {
+          transactionsQuery = transactionsQuery.lte('date', endDate);
+        }
 
-      // Calculate metrics for each currency
-      const currencyMetrics: CurrencyMetrics[] = [];
-      const availableCurrencies = Array.from(groupedByCurrency.keys()).sort();
+        if (businessId !== 'all') {
+          transactionsQuery = transactionsQuery.eq('business_id', businessId);
+        }
+
+        const { data: transactions, error: transactionsError } = await transactionsQuery;
+        if (transactionsError) {
+          console.error('Error fetching transactions:', transactionsError);
+          throw transactionsError;
+        }
+
+        console.log('Fetched transactions:', transactions?.length, 'for period:', period, 'businessId:', businessId);
+
+        // Group transactions by currency
+        const groupedByCurrency = new Map<string, typeof transactions>();
+        (transactions || []).forEach(transaction => {
+          const currency = (transaction.currency && transaction.currency.trim()) || 'PEN'; // Default to PEN if not specified or empty
+          if (!groupedByCurrency.has(currency)) {
+            groupedByCurrency.set(currency, []);
+          }
+          groupedByCurrency.get(currency)!.push(transaction);
+        });
+
+        console.log('Grouped currencies:', Array.from(groupedByCurrency.keys()));
+
+        // Calculate metrics for each currency
+        const currencyMetrics: CurrencyMetrics[] = [];
+        const availableCurrencies = Array.from(groupedByCurrency.keys()).sort();
 
       for (const currency of availableCurrencies) {
         const currencyTransactions = groupedByCurrency.get(currency) || [];
@@ -66,17 +74,25 @@ export function useDashboardMetrics(options: UseDashboardMetricsOptions = {}) {
           .filter(t => t.type === 'transfer')
           .reduce((sum, t) => sum + Number(t.amount), 0);
 
-        // Calculate IGV totals using the database function
-        const { data: igvData, error: igvError } = await supabase
-          .rpc('calculate_igv_totals', {
-            business_filter: businessId === 'all' ? null : businessId,
-            start_date: startDate,
-            end_date: endDate,
-            currency_filter: currency,
-          })
-          .catch(() => ({ data: null, error: null }));
+        // Calculate IGV totals only for PEN currency (IGV is Peruvian tax)
+        let igvCompras = 0;
+        let igvVentas = 0;
+        let creditoFiscalNeto = 0;
 
-        const igvResult = igvData?.[0] || { igv_ventas: 0, igv_compras: 0, credito_fiscal: 0 };
+        if (currency === 'PEN') {
+          const { data: igvData, error: igvError } = await supabase
+            .rpc('calculate_igv_totals', {
+              business_filter: businessId === 'all' ? null : businessId,
+              start_date: startDate || null,
+              end_date: endDate || null,
+            })
+            .catch(() => ({ data: null, error: null }));
+
+          const igvResult = igvData?.[0] || { igv_ventas: 0, igv_compras: 0, credito_fiscal: 0 };
+          igvCompras = Number(igvResult.igv_compras) || 0;
+          igvVentas = Number(igvResult.igv_ventas) || 0;
+          creditoFiscalNeto = Number(igvResult.credito_fiscal) || 0;
+        }
 
         // Calculate monthly trend for this currency
         const monthlyTrend = await calculateMonthlyTrendByCurrency(
@@ -92,9 +108,9 @@ export function useDashboardMetrics(options: UseDashboardMetricsOptions = {}) {
           netProfit,
           profitMargin,
           cashFlow,
-          igvCompras: Number(igvResult.igv_compras) || 0,
-          igvVentas: Number(igvResult.igv_ventas) || 0,
-          creditoFiscalNeto: Number(igvResult.credito_fiscal) || 0,
+          igvCompras,
+          igvVentas,
+          creditoFiscalNeto,
           monthlyTrend,
         });
       }
@@ -103,6 +119,10 @@ export function useDashboardMetrics(options: UseDashboardMetricsOptions = {}) {
         currencyMetrics,
         availableCurrencies,
       };
+      } catch (error) {
+        console.error('Error calculating dashboard metrics:', error);
+        throw error;
+      }
     },
   });
 }
