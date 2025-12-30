@@ -9,11 +9,13 @@ export interface AccountMovement {
   amount: number;
   balance: number;
   businessName?: string;
+  currency?: string;
 }
 
 export interface AccountBalance {
   accountName: string;
   accountType: string;
+  accountCurrency?: string;
   totalIncome: number;
   totalExpense: number;
   netBalance: number;
@@ -60,6 +62,7 @@ export function useAccountBalances(businessId: string, period: string) {
 
         (transactions || []).forEach((tx: any) => {
           const businessName = tx.businesses?.name || '';
+          const currency = tx.currency || 'PEN';
           
           // Income to this account
           if (tx.type === 'income' && tx.to_account === account.name) {
@@ -72,6 +75,7 @@ export function useAccountBalances(businessId: string, period: string) {
               amount: Number(tx.amount),
               balance: runningBalance,
               businessName,
+              currency,
             });
           }
           
@@ -86,6 +90,7 @@ export function useAccountBalances(businessId: string, period: string) {
               amount: Number(tx.amount),
               balance: runningBalance,
               businessName,
+              currency,
             });
           }
           
@@ -100,6 +105,7 @@ export function useAccountBalances(businessId: string, period: string) {
               amount: Number(tx.amount),
               balance: runningBalance,
               businessName,
+              currency,
             });
           }
           
@@ -114,6 +120,7 @@ export function useAccountBalances(businessId: string, period: string) {
               amount: Number(tx.amount),
               balance: runningBalance,
               businessName,
+              currency,
             });
           }
         });
@@ -121,6 +128,7 @@ export function useAccountBalances(businessId: string, period: string) {
         return {
           accountName: account.name,
           accountType: account.type,
+          accountCurrency: account.currency || 'PEN',
           totalIncome,
           totalExpense,
           netBalance: totalIncome - totalExpense,

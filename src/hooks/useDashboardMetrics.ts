@@ -80,18 +80,21 @@ export function useDashboardMetrics(options: UseDashboardMetricsOptions = {}) {
         let creditoFiscalNeto = 0;
 
         if (currency === 'PEN') {
-          const { data: igvData, error: igvError } = await supabase
-            .rpc('calculate_igv_totals', {
-              business_filter: businessId === 'all' ? null : businessId,
-              start_date: startDate || null,
-              end_date: endDate || null,
-            })
-            .catch(() => ({ data: null, error: null }));
+          try {
+            const { data: igvData } = await supabase
+              .rpc('calculate_igv_totals', {
+                business_filter: businessId === 'all' ? null : businessId,
+                start_date: startDate || null,
+                end_date: endDate || null,
+              });
 
-          const igvResult = igvData?.[0] || { igv_ventas: 0, igv_compras: 0, credito_fiscal: 0 };
-          igvCompras = Number(igvResult.igv_compras) || 0;
-          igvVentas = Number(igvResult.igv_ventas) || 0;
-          creditoFiscalNeto = Number(igvResult.credito_fiscal) || 0;
+            const igvResult = igvData?.[0] || { igv_ventas: 0, igv_compras: 0, credito_fiscal: 0 };
+            igvCompras = Number(igvResult.igv_compras) || 0;
+            igvVentas = Number(igvResult.igv_ventas) || 0;
+            creditoFiscalNeto = Number(igvResult.credito_fiscal) || 0;
+          } catch (e) {
+            console.error('Error calculating IGV:', e);
+          }
         }
 
         // Calculate monthly trend for this currency

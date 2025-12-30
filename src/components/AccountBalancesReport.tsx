@@ -21,17 +21,15 @@ import { Building2, Wallet, Banknote, TrendingUp, TrendingDown, ArrowRightLeft, 
 import { exportAccountBalancesReportToPDF } from "@/lib/pdfExport";
 import { useBusinesses } from "@/hooks/useBusinesses";
 import { getPeriodLabel } from "@/lib/periodUtils";
+import { formatCurrency as formatCurrencyUtil } from "@/lib/calculations";
 
 interface AccountBalancesReportProps {
   businessId: string;
   period: string;
 }
 
-const formatCurrency = (amount: number) => {
-  return new Intl.NumberFormat("es-PE", {
-    style: "currency",
-    currency: "PEN",
-  }).format(amount);
+const formatCurrency = (amount: number, currency: string = 'PEN') => {
+  return formatCurrencyUtil(amount, currency);
 };
 
 const formatDate = (dateString: string) => {
@@ -85,6 +83,7 @@ const getMovementIcon = (type: string) => {
 
 function AccountCard({ account }: { account: AccountBalance }) {
   const hasMovements = account.movements.length > 0;
+  const accountCurrency = account.accountCurrency || 'PEN';
 
   return (
     <AccordionItem value={account.accountName} className="border rounded-lg px-4">
@@ -97,7 +96,7 @@ function AccountCard({ account }: { account: AccountBalance }) {
             <div className="text-left">
               <p className="font-semibold">{account.accountName}</p>
               <p className="text-sm text-muted-foreground">
-                {getAccountTypeLabel(account.accountType)} • {account.movements.length} movimientos
+                {getAccountTypeLabel(account.accountType)} • {accountCurrency} • {account.movements.length} movimientos
               </p>
             </div>
           </div>
@@ -105,13 +104,13 @@ function AccountCard({ account }: { account: AccountBalance }) {
             <div className="text-right">
               <p className="text-sm text-muted-foreground">Entradas</p>
               <p className="font-medium text-emerald-600">
-                +{formatCurrency(account.totalIncome)}
+                +{formatCurrency(account.totalIncome, accountCurrency)}
               </p>
             </div>
             <div className="text-right">
               <p className="text-sm text-muted-foreground">Salidas</p>
               <p className="font-medium text-red-600">
-                -{formatCurrency(account.totalExpense)}
+                -{formatCurrency(account.totalExpense, accountCurrency)}
               </p>
             </div>
             <div className="text-right min-w-[120px]">
@@ -121,7 +120,7 @@ function AccountCard({ account }: { account: AccountBalance }) {
                   account.netBalance >= 0 ? "text-emerald-600" : "text-red-600"
                 }`}
               >
-                {formatCurrency(account.netBalance)}
+                {formatCurrency(account.netBalance, accountCurrency)}
               </p>
             </div>
           </div>
@@ -136,6 +135,7 @@ function AccountCard({ account }: { account: AccountBalance }) {
                   <TableHead className="w-[100px]">Fecha</TableHead>
                   <TableHead>Descripción</TableHead>
                   <TableHead>Negocio</TableHead>
+                  <TableHead className="text-center">Moneda</TableHead>
                   <TableHead className="text-right">Monto</TableHead>
                   <TableHead className="text-right">Saldo</TableHead>
                 </TableRow>
@@ -157,6 +157,11 @@ function AccountCard({ account }: { account: AccountBalance }) {
                         {movement.businessName || "-"}
                       </Badge>
                     </TableCell>
+                    <TableCell className="text-center">
+                      <Badge variant="secondary" className="font-normal">
+                        {movement.currency || accountCurrency}
+                      </Badge>
+                    </TableCell>
                     <TableCell className="text-right">
                       <span
                         className={
@@ -168,11 +173,11 @@ function AccountCard({ account }: { account: AccountBalance }) {
                         {movement.type === "income" || movement.type === "transfer_in"
                           ? "+"
                           : "-"}
-                        {formatCurrency(movement.amount)}
+                        {formatCurrency(movement.amount, movement.currency || accountCurrency)}
                       </span>
                     </TableCell>
                     <TableCell className="text-right font-medium">
-                      {formatCurrency(movement.balance)}
+                      {formatCurrency(movement.balance, accountCurrency)}
                     </TableCell>
                   </TableRow>
                 ))}

@@ -149,6 +149,27 @@ export type Database = {
           },
         ]
       }
+      currency_type: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: number
+          symbol: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: number
+          symbol?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: number
+          symbol?: string | null
+        }
+        Relationships: []
+      }
       invoice_items: {
         Row: {
           created_at: string | null
@@ -240,6 +261,7 @@ export type Database = {
       payment_accounts: {
         Row: {
           created_at: string
+          currency: string | null
           id: number
           is_active: boolean
           name: string
@@ -247,6 +269,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          currency?: string | null
           id?: number
           is_active?: boolean
           name: string
@@ -254,6 +277,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          currency?: string | null
           id?: number
           is_active?: boolean
           name?: string
@@ -288,6 +312,7 @@ export type Database = {
           business_id: string
           category_id: number | null
           created_at: string | null
+          currency: string | null
           date: string
           description: string | null
           from_account: string | null
@@ -304,6 +329,7 @@ export type Database = {
           business_id: string
           category_id?: number | null
           created_at?: string | null
+          currency?: string | null
           date: string
           description?: string | null
           from_account?: string | null
@@ -320,6 +346,7 @@ export type Database = {
           business_id?: string
           category_id?: number | null
           created_at?: string | null
+          currency?: string | null
           date?: string
           description?: string | null
           from_account?: string | null
@@ -347,11 +374,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "transactions_from_account_fkey"
+            columns: ["from_account"]
+            isOneToOne: false
+            referencedRelation: "payment_accounts"
+            referencedColumns: ["name"]
+          },
+          {
             foreignKeyName: "transactions_invoice_id_fkey"
             columns: ["invoice_id"]
             isOneToOne: false
             referencedRelation: "invoices"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_to_account_fkey"
+            columns: ["to_account"]
+            isOneToOne: false
+            referencedRelation: "payment_accounts"
+            referencedColumns: ["name"]
           },
         ]
       }
@@ -383,7 +424,6 @@ export type Database = {
       }
     }
     Enums: {
-      account_type: "asset" | "liability" | "equity" | "income" | "expense"
       transaction_type: "income" | "expense" | "transfer"
     }
     CompositeTypes: {
@@ -512,7 +552,6 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      account_type: ["asset", "liability", "equity", "income", "expense"],
       transaction_type: ["income", "expense", "transfer"],
     },
   },
