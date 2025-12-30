@@ -15,12 +15,23 @@ export default function Dashboard() {
   const [selectedPeriod, setSelectedPeriod] = useState('current-month');
   const [selectedCurrency, setSelectedCurrency] = useState('PEN');
 
-  const { data: metricsResponse, isLoading } = useDashboardMetrics({
+  const { data: metricsResponse, isLoading, error } = useDashboardMetrics({
     businessId: selectedBusiness,
     period: selectedPeriod,
   });
 
   const { currencyMetrics = [], availableCurrencies = [] } = metricsResponse || {};
+
+  // Log debugging info
+  useEffect(() => {
+    console.log('Dashboard metrics:', {
+      isLoading,
+      error,
+      currencyMetrics,
+      availableCurrencies,
+      selectedCurrency,
+    });
+  }, [currencyMetrics, availableCurrencies, isLoading, error]);
 
   // Use useEffect to update selectedCurrency when availableCurrencies changes
   useEffect(() => {
@@ -31,6 +42,16 @@ export default function Dashboard() {
       }
     }
   }, [availableCurrencies, selectedCurrency]);
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center text-destructive">
+          Error al cargar métricas: {String(error)}
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
